@@ -1,6 +1,6 @@
 # ㅇㅇ
 
-### Attention
+## Attention
 
 ```py
 class Attention(nn.Module):
@@ -19,10 +19,12 @@ Attention 클래스가 nn.Module의 모든 기능(파라미터 관리, GPU 이�
 `torch.rand(hidden_dim)`:  `hidden_dim`을 [0, 1) 범위의 균등분포로 초기화\
 즉 `self.v`는 [0, 1) 범위의 균등분포 초기화된 크기 hidden_dim의 벡터이다.\
 코드 자체는 이런 뜻이고, 모델에서의 역할은 에너지 값과의 행렬 곱을 통해 어텐션 스코어를 생성하기 위해 모든 시퀀스 위치에서 공유되는 글로벌 파라미터이다. 
+
+### forward의 parameter
 ```py
     def forward(self, hidden, encoder_outputs):
 ```
-**각 파라미터 설명**
+#### 자세한 설명
 1. hidden
 - 정의: 디코더의 현재 타임스텝의 은닉 상태(hidden state)
 - 형상(shape): 보통 (num_layers, batch_size, hidden_dim) 또는 (batch_size, hidden_dim)
@@ -31,19 +33,33 @@ Attention 클래스가 nn.Module의 모든 기능(파라미터 관리, GPU 이�
 - 정의: 인코더의 전체 시퀀스 출력(각 입력 토큰별 은닉 상태)
 - 형상(shape): (batch_size, seq_len, hidden_dim)
 - 역할: 입력 시퀀스의 각 위치별 정보를 담고 있음.
+### `batch_size`, `seq_len` 추출
 ```py
         batch_size = encoder_outputs.shape[0]
         seq_len = encoder_outputs.shape[1]
 ```
-tensor의 `.shape` 프로퍼티는 텐서의 형상(각 차원 별 크기)을 tuple 형태로 반환한다.\
-**각 변수 설명**
+#### 기본 설명
+얘내는 attention 메커니즘 내에서 계산할 때 필요한 값들이다.
+#### 코드 추가 설명
+tensor의 `.shape` 프로퍼티는 텐서의 형상(각 차원 별 크기)을 tuple 형태로 반환한다.
+#### 자세한 설명
 1. batch_size
 - 정의: 배치 크기(= 인코더 출력 텐서의 0번 차원)
 - 의미: 한 번에 처리하는 데이터 샘플 수 (예: 32개의 문장을 동시에 처리)
 2. seq_len
 - 정의: 시퀀스 길이(= 인코더 출력 텐서의 1번 차원)
 - 의미: 패딩(padding)이 포함된 원본 입력의 최대 길이
-
+### `hidden` 전처리
+```py
+        hidden = hidden.permute(1, 0, 2) 
+        hidden = hidden.expand(batch_size, seq_len, -1)
+```
+#### 기본 설명
+이후의 연산 작업을 위해 텐서 `hidden`을 전처리 하는 과정이다.
+#### 코드 추가 설명
+1. permute(d1, d2, ...)
+- 정의: 인자 순서에 맞춰서 각 차원의 위치를 교환해준다. 행렬 transpose의 다차원 버전이라고 생각하면 편하다.
+2. 
 
 
 
