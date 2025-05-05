@@ -59,7 +59,10 @@ tensor의 `.shape` 프로퍼티는 텐서의 형상(각 차원 별 크기)을 tu
 #### 코드 추가 설명
 1. permute(d1, d2, ...)
 - 정의: 인자 순서에 맞춰서 각 차원의 위치를 교환해준다. 행렬 transpose의 다차원 버전이라고 생각하면 편하다.
-2. 
+#### 자세한 설명
+1. hidden = hidden.permute(1, 0, 2)
+- 역할: 텐서 `hidden`이 (batch_size, seq_len, hidden_dim) 또는 (batch_size, hidden_dim) 형태의 텐서가 되도록, 즉 batch 차원이 앞으로 오도록 차원 순서를 바꿔준다.
+- 이유: PyTorch의 RNN 계열(LSTM, GRU 등)에서 디코더의 hidden state는 기본적으로 (num_layers, batch_size, hidden_dim) 형태로 출력되지만, attention 메커니즘 내의 연산에서는 일반적으로 디코더의 현재 hidden state(= `hidden`)와 인코더의 모든 출력(= `encoder_outputs`) -> (batch_size, seq_len, hidden_dim)이나 (batch_size, hidden_dim) 형태의 텐서)을 같은 batch 차원 기준으로 연산해야 하기 때문이다.
 
 
 
