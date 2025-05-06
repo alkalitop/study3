@@ -13,24 +13,28 @@ Attention 클래스가 torch.nn.Module의 모든 기능(파라미터 관리, GPU
 #### 코드 추가 설명
 `torch.nn.Module` 은 PyTorch의 모든 Neural Network의 base class 이다.
 
-### `self.attn` (선형 변환 레이어)
+### 선형 변환 레이어(`self.attn`) 선언
 ```py
 self.attn = nn.Linear(hidden_dim * 2, hidden_dim)
 ```
 #### 기본 설명
-어텐션 스코어 계산을 위한 변환 레이어.
+에너지 계산을 위한 선형 변환 레이어.
 #### 코드 추가 설명
 1. `nn.Linear(int in_features, int out_features, bool bias=True)`
 - 정의: PyTorch에서 사용되는 선형 변환(linear transformation)을 수행하는 클래스로, Fully Connected Layer라고도 불린다.
 - `in_features`: 입력 텐서의 크기
 - `out_features`: 출력 텐서의 크기
 #### 자세한 설명
-`nn.Linear`의 파라미터를 보면 출력 텐서의 크기가 입력 텐서의 크기의 절반인 것을 확인할 수 있다. 즉 이 레이어는 선형 변환을 통해 어떠한 텐서의 크기를 절반으로 줄여주는 역할을 나중에 수행하게 된다.
+`nn.Linear`의 매개변수를 보면 출력 텐서의 크기가 입력 텐서의 크기의 절반인 것을 확인할 수 있다. 즉 이 레이어는 선형 변환을 통해 어떠한 텐서의 크기를 절반으로 줄여주는 역할을 나중에 수행하게 된다.
 
-### v???
+### 파라미터 벡터(`self.v`) 선언
 ```py
-        self.v = nn.Parameter(torch.rand(hidden_dim))
+self.v = nn.Parameter(torch.rand(hidden_dim))
 ```
+#### 기본 설명
+각각의 hidden state vector와 같은 길이(= `hidden_dim`)를 가지는 학습 가능한 벡터. 
+
+### forward
 #### 기본 설명
 에너지 값과의 행렬 곱을 통해 어텐션 스코서
 - 형태(shape): 보통 (num_layers, batch_size, hidden_dim)
@@ -39,7 +43,7 @@ self.attn = nn.Linear(hidden_dim * 2, hidden_dim)
 - 정의: Encoder에서 처리한 input sequence의 각 토큰 별 hidden state들을 담고 있는 텐서
 - 형태(shape): (batch_size, seq_len, hidden_dim)
 
-### `batch_size`, `seq_len` 추출
+### 계산에 필요한 값(`batch_size`, `seq_len`) 추출
 ```py
 batch_size = encoder_outputs.shape[0]
 seq_len = encoder_outputs.shape[1]
@@ -56,7 +60,7 @@ tensor의 `.shape` 프로퍼티는 텐서의 형태(각 차원 별 크기)을 tu
 - 정의: 시퀀스 길이(= `encoder_outputs`의 1번 차원)
 - 의미: 패딩(padding)이 포함된 원본 입력의 최대 길이
 
-### `hidden` 전처리
+### Decoder의 현재 time step의 hidden state 텐서 전처리
 ```py
 hidden = hidden.permute(1, 0, 2) 
 hidden = hidden.expand(batch_size, seq_len, -1)
@@ -76,17 +80,18 @@ hidden = hidden.expand(batch_size, seq_len, -1)
 - 역할: 텐서 `hidden`이 `(batch_size, seq_len, hidden_dim)` 형태가 되도록 브로드캐스팅 해준다. (나머지 차원은 그대로 두고 1번째 차원의 크기만 `num_layers`에서 `seq_len`가 되도록 함)
 - 이유: 두 텐서 `hidden`과 `encoder_outputs`의 연산을 정상적으로 실행하려면, 형태가 호환 가능하도록 맞춰주는 작업이 필요하다.
 
-### energy
+### Energy 계산
 ```py
 energy = torch.tanh(self.attn(torch.cat((hidden, encoder_outputs), dim=2)))
 ```
 #### 기본 설명
 energy는 Attention 메커니즘에서 Decoder의 현재 hidden state와 Encoder의 각 시점의 hidden state 사이의 관련성(유사도, 중요도)을 수치로 나타낸 값이다(각 Encoder 출력마다 하나씩 계산된다). 이 값이 클수록, 해당 인코더 위치(단어)가 디코더의 현재 예측에 더 중요한 정보를 제공한다고 해석할 수 있기에, 후처리를 진행하고 나중에 가중치로 써먹는다. 
-#### energy 계산 방법
+#### 계산 방법
 1. dot product
 - energy = hidden * encoder_outputs.transpose()
 2. Additive attention (Bahdanau attention)
 - energy = tanh(W * [hidden;encoder_outputs]) 
+\
 이외에도 여러가지 방법이 존재한다. 이 코드에서는 Additive attention 방식을 채택하였다.
 #### 코드 추가 설명
 1. `torch.cat(tuple tensors, int dim)`
@@ -100,6 +105,8 @@ energy는 Attention 메커니즘에서 Decoder의 현재 hidden state와 Encoder
 #### 자세한 설명
 Additive attention 방식으로 energy를 계산해보자. `torch.cat`으로 먼저 `hidden`과 `encoder_outputs`를 합쳐준다. 이 때 텐서의 크기가 기존 두 텐서의 2배가 되므로, `self.attn`레이어를 이용하여 선형 변환을 통해 크기를 다시 원래대로(=`hidden_dim`) 돌려놓는다(여기서 `self.attn`레이어가 `W`의 역할도 한다). 이후 레이어 반환값을 `torch.tanh` 함수에 넣어서 계산을 완료한다.
 
+### Attention Weight (Context Vector) 계산
+v = self.v.repeat(batch_size, 1).unsqueeze(2)
 
 `source`: encoder에 입력되는 원본 sequence (예: 번역할 원문)
 `target`: decoder가 학습?할 target sequence (예: 번역 결과)
