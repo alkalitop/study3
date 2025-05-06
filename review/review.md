@@ -13,34 +13,26 @@ Attention 클래스가 torch.nn.Module의 모든 기능(파라미터 관리, GPU
 #### 코드 추가 설명
 `torch.nn.Module` 은 PyTorch의 모든 Neural Network의 base class 이다.
 
-### 레이어
+### `self.attn` (선형 변환 레이어)
 ```py
-        self.attn = nn.Linear(hidden_dim * 2, hidden_dim)
+self.attn = nn.Linear(hidden_dim * 2, hidden_dim)
 ```
 #### 기본 설명
-어텐션 스코어 계산을 위한 변환 레이어. 최종 어텐션 스코어는 이 레이어의 출력값을 기반으로 계산됨.
+어텐션 스코어 계산을 위한 변환 레이어.
+#### 코드 추가 설명
+1. `nn.Linear(int in_features, int out_features, bool bias=True)`
+- 정의: PyTorch에서 사용되는 선형 변환(linear transformation)을 수행하는 클래스로, Fully Connected Layer라고도 불린다.
+- `in_features`: 입력 텐서의 크기
+- `out_features`: 출력 텐서의 크기
+#### 자세한 설명
+`nn.Linear`의 파라미터를 보면 출력 텐서의 크기가 입력 텐서의 크기의 절반인 것을 확인할 수 있다. 즉 이 레이어는 선형 변환을 통해 어떠한 텐서의 크기를 절반으로 줄여주는 역할을 나중에 수행하게 된다.
 
 ### v???
 ```py
         self.v = nn.Parameter(torch.rand(hidden_dim))
 ```
 #### 기본 설명
-에너지 값과의 행렬 곱을 통해 어텐션 스코어를 생성하기 위해 모든 시퀀스 위치에서 공유되는 글로벌 파라미터이다. 
-#### 코드 추가 설명
-1. `nn.Parameter()`
-- 정의: PyTorch에서 학습 가능한 텐서(벡터)를 생성하는 메서드
-2. `torch.rand(d)`
-- 정의: d를 [0, 1) 범위의 균등분포로 초기화(?)
-#### 자세한 설명
-`self.v`는 [0, 1) 범위의 균등분포 초기화된 크기 hidden_dim의 벡터이다. 시퀀스 여기저기 돌아다니면서 어텐션 연산 도와주는 친구
-
-### forward의 parameter
-```py
-def forward(self, hidden, encoder_outputs):
-```
-#### 자세한 설명
-1. `hidden`
-- 정의: Decoder의 현재 time step의 hidden state 벡터
+에너지 값과의 행렬 곱을 통해 어텐션 스코서
 - 형태(shape): 보통 (num_layers, batch_size, hidden_dim)
 - 역할: 인코더의 각 출력과 비교하여, 디코더가 현재 어느 인코더 위치에 집중할지(어텐션 분포)를 결정하는 기준이 됨
 2. `encoder_outputs`
@@ -79,12 +71,23 @@ hidden = hidden.expand(batch_size, seq_len, -1)
 #### 자세한 설명
 1. `hidden = hidden.permute(1, 0, 2)`
 - 역할: 차원 순서를 (0→1, 1→0, 2→2)로 바꾼다. 텐서 `hidden`이 `(batch_size, num_layers, hidden_dim)` 형태의 텐서가 되도록, 즉 batch 차원이 앞으로 오도록 차원 순서를 바꿔준다. 
-- 이유: PyTorch의 RNN 계열(LSTM, GRU 등)에서 Decoder의 hidden state(= `hidden`)는 기본적으로 `(num_layers, batch_size, hidden_dim)` 형태로 반환되지만, Encoder의 각 출력을 담은 텐서(= `encoder_outputs`)는 `(batch_size, seq_len, hidden_dim)` 형태를 띄고 있다. 일반적으로 Attention 메커니즘에서는 이 두 텐서를 `batch_size`를 기준으로 연산을 실행하기 때문에, 곱연산을 정상적으로 실행하기 위해서는 두 텐서의 형태를 호환 가능하게 해주는 작업이 필요하다.
+- 이유: PyTorch의 RNN 계열(LSTM, GRU 등)에서 Decoder의 hidden state(= `hidden`)는 기본적으로 `(num_layers, batch_size, hidden_dim)` 형태로 반환되지만, Encoder의 각 출력을 담은 텐서(= `encoder_outputs`)는 `(batch_size, seq_len, hidden_dim)` 형태를 띄고 있다. 일반적으로 Attention 메커니즘에서는 이 두 텐서를 `batch_size`를 기준으로 연산을 실행하기 때문에, 연산을 정상적으로 실행하기 위해서는 두 텐서의 형태를 호환 가능하게 해주는 작업이 필요하다.
 2.  `hidden = hidden.expand(batch_size, seq_len, -1)`
 - 역할: 텐서 `hidden`이 `(batch_size, seq_len, hidden_dim)` 형태가 되도록 브로드캐스팅 해준다. (나머지 차원은 그대로 두고 1번째 차원의 크기만 `num_layers`에서 `seq_len`가 되도록 함)
 - 이유: 두 텐서 `hidden`과 `encoder_outputs`의 연산을 정상적으로 실행하려면, 형태가 호환 가능하도록 맞춰주는 작업이 필요하다.
 
 ### energy
+```py
+energy = torch.tanh(self.attn(torch.cat((hidden, encoder_outputs), dim=2)))
+```
+#### 코드 추가 설명
+1. `torch.cat(tuple tensors, int dim)`
+- 정의: 텐서를 여러 개 받아서 특정 차원 기준으로 합친다.
+- `tensors`: 합칠 텐서들을 tuple에 넣어서 전달
+- `dim`: 합칠 때 기준이 되는 차원
+- 예시: `A.shape = (30, 20, 256), B.shape = (30, 20, 256) -> torch.cat((A, B), dim=2).shape = (30, 20, 512)`
+#### 자세한 설명
+`torch.cat`으로 먼저 `hidden`과 `encoder_outputs`를 합쳐준다. 이 때 텐서의 크기가 기존 두 텐서의 2배가 되므로, `self.attn`레이어를 이용하여 선형 변환을 통해 크기를 다시 원래대로(=`hidden_dim`) 돌려놓는다. 이후 출력값들을 [-1, 1] 범위로 정규화 하기 위해 activation function으로서 `torch.tanh`을 이용한다.
 
 
 `source`: encoder에 입력되는 원본 sequence (예: 번역할 원문)
