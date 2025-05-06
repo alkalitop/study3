@@ -150,7 +150,7 @@ Attention Weight를 계산하는 과정이다.
 self.attention = Attention(hidden_dim)
 ```
 
-###
+### Context 계산
 ```py
 attn_weights = self.attention(hidden, encoder_outputs)  
 attn_weights = attn_weights.unsqueeze(1)
