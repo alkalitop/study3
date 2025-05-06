@@ -79,10 +79,10 @@ hidden = hidden.expand(batch_size, seq_len, -1)
 #### 자세한 설명
 1. `hidden = hidden.permute(1, 0, 2)`
 - 역할: 차원 순서를 (0→1, 1→0, 2→2)로 바꾼다. 텐서 `hidden`이 `(batch_size, num_layers, hidden_dim)` 형태의 텐서가 되도록, 즉 batch 차원이 앞으로 오도록 차원 순서를 바꿔준다. 
-- 이유: PyTorch의 RNN 계열(LSTM, GRU 등)에서 Decoder의 hidden state(= `hidden`)는 기본적으로 `(num_layers, batch_size, hidden_dim)` 형태로 반환되지만, Encoder의 각 출력을 담은 텐서(= `encoder_outputs`)는 `(batch_size, seq_len, hidden_dim)` 형태를 띄고 있다. 일반적으로 Attention 메커니즘에서는 이 두 텐서를 `batch_size`를 기준으로 연산을 실행하기 때문에, 곱연산을 정상적으로 실행하기 위해서는 두 텐서의 형태를 동일하게 해주는 작업이 필요하다.
+- 이유: PyTorch의 RNN 계열(LSTM, GRU 등)에서 Decoder의 hidden state(= `hidden`)는 기본적으로 `(num_layers, batch_size, hidden_dim)` 형태로 반환되지만, Encoder의 각 출력을 담은 텐서(= `encoder_outputs`)는 `(batch_size, seq_len, hidden_dim)` 형태를 띄고 있다. 일반적으로 Attention 메커니즘에서는 이 두 텐서를 `batch_size`를 기준으로 연산을 실행하기 때문에, 곱연산을 정상적으로 실행하기 위해서는 두 텐서의 형태를 호환 가능하게 해주는 작업이 필요하다.
 2.  `hidden = hidden.expand(batch_size, seq_len, -1)`
-- 역할: 텐서 `hidden`이 `(batch_size, seq_len, hidden_dim)` 형태가 되도록 브로드캐스팅 해준다.
-- 이유: 두 텐서 `hidden`과 `encoder_outputs`이 같은 형태를 가져서 연산이 가능하도록 해준다.
+- 역할: 텐서 `hidden`이 `(batch_size, seq_len, hidden_dim)` 형태가 되도록 브로드캐스팅 해준다. (나머지 차원은 그대로 두고 1번째 차원의 크기만 `num_layers`에서 `seq_len`가 되도록 함)
+- 이유: 두 텐서 `hidden`과 `encoder_outputs`의 연산을 정상적으로 실행하려면, 형태가 호환 가능하도록 맞춰주는 작업이 필요하다.
 
 ### energy
 
