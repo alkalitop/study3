@@ -80,14 +80,25 @@ hidden = hidden.expand(batch_size, seq_len, -1)
 ```py
 energy = torch.tanh(self.attn(torch.cat((hidden, encoder_outputs), dim=2)))
 ```
+#### 기본 설명
+energy는 Attention 메커니즘에서 Decoder의 현재 hidden state와 Encoder의 각 시점의 hidden state 사이의 관련성(유사도, 중요도)을 수치로 나타낸 값이다(각 Encoder 출력마다 하나씩 계산된다). 이 값이 클수록, 해당 인코더 위치(단어)가 디코더의 현재 예측에 더 중요한 정보를 제공한다고 해석할 수 있기에, 후처리를 진행하고 나중에 가중치로 써먹는다. 
+#### energy 계산 방법
+1. dot product
+- energy = hidden * encoder_outputs.transpose()
+2. Additive attention (Bahdanau attention)
+- energy = tanh(W * [hidden;encoder_outputs]) 
+이외에도 여러가지 방법이 존재한다. 이 코드에서는 Additive attention 방식을 채택하였다.
 #### 코드 추가 설명
 1. `torch.cat(tuple tensors, int dim)`
 - 정의: 텐서를 여러 개 받아서 특정 차원 기준으로 합친다.
 - `tensors`: 합칠 텐서들을 tuple에 넣어서 전달
 - `dim`: 합칠 때 기준이 되는 차원
 - 예시: `A.shape = (30, 20, 256), B.shape = (30, 20, 256) -> torch.cat((A, B), dim=2).shape = (30, 20, 512)`
+2. `torch.tanh(*args)`
+- 정의: non-linear activation function 으로 이용되는 tanh 함수이다. 
+- 역할: 여기서는 energy를 Additive attention(Bahdanau attention) 방식으로 계산하기 위해 사용한다.
 #### 자세한 설명
-`torch.cat`으로 먼저 `hidden`과 `encoder_outputs`를 합쳐준다. 이 때 텐서의 크기가 기존 두 텐서의 2배가 되므로, `self.attn`레이어를 이용하여 선형 변환을 통해 크기를 다시 원래대로(=`hidden_dim`) 돌려놓는다. 이후 출력값들을 [-1, 1] 범위로 정규화 하기 위해 activation function으로서 `torch.tanh`을 이용한다.
+Additive attention 방식으로 energy를 계산해보자. `torch.cat`으로 먼저 `hidden`과 `encoder_outputs`를 합쳐준다. 이 때 텐서의 크기가 기존 두 텐서의 2배가 되므로, `self.attn`레이어를 이용하여 선형 변환을 통해 크기를 다시 원래대로(=`hidden_dim`) 돌려놓는다(여기서 `self.attn`레이어가 `W`의 역할도 한다). 이후 레이어 반환값을 `torch.tanh` 함수에 넣어서 계산을 완료한다.
 
 
 `source`: encoder에 입력되는 원본 sequence (예: 번역할 원문)
