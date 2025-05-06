@@ -112,7 +112,7 @@ Energy(Attention Score)는 Attention 메커니즘에서 Decoder의 현재 hidden
 #### 자세한 설명
 Additive attention 방식으로 energy를 계산해보자. `torch.cat`으로 먼저 `hidden`과 `encoder_outputs`를 합쳐준다. 이 때 텐서의 크기가 기존 두 텐서의 2배가 되므로, `self.attn`레이어를 이용하여 선형 변환을 통해 크기를 다시 원래대로(=`hidden_dim`) 돌려놓는다(여기서 `self.attn`레이어가 `W`의 역할도 한다). 이후 레이어 반환값을 `torch.tanh` 함수에 넣어서 계산을 완료한다.
 
-### Context Vector 계산을 위해 파라미터 전처리
+### Attention Weight 계산을 위해 파라미터 전처리
 ```py
 v = self.v.repeat(batch_size, 1).unsqueeze(2)
 ```
@@ -127,13 +127,13 @@ v = self.v.repeat(batch_size, 1).unsqueeze(2)
 #### 자세한 설명
 `self.v`의 초기 형태(shape)는 `(hidden_dim,)` 이다. 이 때 `.repeat(batch_size, 1)`을 실행하면 파라미터 형태가 `(batch_size, hidden_dim)` 이 된다. 여기서 `.unsqueeze(2)`를 실행하여 크기가 1인 차원을 2번째에 insert하게 되므로, 최종적으로 파라미터의 형태는 `(batch_size, hidden_dim, 1)`이 된다.
 
-### Context Vector 계산
+### Attention Weight 계산
 ```py
 attention_weights = torch.bmm(energy, v).squeeze(2) 
 return torch.softmax(attention_weights, dim=1)
 ```
 #### 기본 설명
-context vector를 계산하는 과정이다.
+Attention Weight를 계산하는 과정이다.
 #### 코드 추가 설명
 1. `torch.bmm(Tensor t1, Tensor t2)`
 - 정의: batch matrix-matrix product를 실행한다. 두 텐서 t1, t2의 shape가 각각 (batch_size, n, m), (batch_size, m, p) 일 때, 뒤의 두 차원끼리 행렬곱을 실행하여 최종적으로 shape가 (batch_size, n, p)인 텐서를 반환한다.
@@ -142,6 +142,17 @@ context vector를 계산하는 과정이다.
 3. `torch.softmax(Tensor data, int dim)`
 - 정의: 주어진 텐서의 dim번째 차원을 기준으로 각 softmax 값을 계산하여 반환한다.
 #### 자세한 설명
-`v`는 단순히 최종 텐서 형태 조정을 도와주는 파라미터라는 것을 기억하고 가자. `torch.bmm(energy, v)` 을 실행하면 형태가 `(batch_size, seq_len, 1)` 인 텐서가 반환되고, 2번째 차원이 1이므로 `.squeeze(1)`을 실행하여 최종적으로 `(batch_size, seq_len)` 형태의 텐서인 `attention_weights`를 얻을 수 있다. context vector는 `attention_weight`의 1번째 차원을 기준으로 각 값에 softmax를 취한 벡터이다.
+`v`는 단순히 최종 텐서 형태 조정을 도와주는 파라미터라는 것을 기억하고 가자. `torch.bmm(energy, v)` 을 실행하면 형태가 `(batch_size, seq_len, 1)` 인 텐서가 반환되고, 2번째 차원이 1이므로 `.squeeze(1)`을 실행하여 최종적으로 `(batch_size, seq_len)` 형태의 텐서를 얻을 수 있다. 이 텐서의 1번째 차원을 기준으로 각 값에 softmax를 취한 텐서가 Attention Weight이다.
 
 ## Decoder
+### Attention 불러오기
+```py
+self.attention = Attention(hidden_dim)
+```
+
+###
+```py
+attn_weights = self.attention(hidden, encoder_outputs)  
+attn_weights = attn_weights.unsqueeze(1)
+context = torch.bmm(attn_weights, encoder_outputs)
+```
