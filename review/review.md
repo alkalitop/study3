@@ -43,7 +43,9 @@ Context Vector 계산을 위한 학습 가능한 벡터 (파라미터)
 
 ### forward
 #### 기본 설명
-에너지 값과의 행렬 곱을 통해 어텐션 스코서
+Attention Weight를 반환하는 함수
+#### 매개변수 목록
+1. `hidden`
 - 형태(shape): 보통 (num_layers, batch_size, hidden_dim)
 - 역할: 인코더의 각 출력과 비교하여, 디코더가 현재 어느 인코더 위치에 집중할지(어텐션 분포)를 결정하는 기준이 됨
 2. `encoder_outputs`
