@@ -18,7 +18,7 @@ Attention 클래스가 torch.nn.Module의 모든 기능(파라미터 관리, GPU
 self.attn = nn.Linear(hidden_dim * 2, hidden_dim)
 ```
 #### 기본 설명
-에너지 계산을 위한 선형 변환 레이어.
+Energy(Attention Score) 계산을 위한 선형 변환 레이어.
 #### 코드 추가 설명
 1. `nn.Linear(int in_features, int out_features, bool bias=True)`
 - 정의: PyTorch에서 사용되는 선형 변환(linear transformation)을 수행하는 클래스로, Fully Connected Layer라고도 불린다.
@@ -32,7 +32,14 @@ self.attn = nn.Linear(hidden_dim * 2, hidden_dim)
 self.v = nn.Parameter(torch.rand(hidden_dim))
 ```
 #### 기본 설명
-각각의 hidden state vector와 같은 길이(= `hidden_dim`)를 가지는 학습 가능한 벡터. 
+Context Vector 계산을 위한 학습 가능한 벡터
+#### 코드 추가 설명
+1. `torch.rand(int d1, d2, ...)`
+- 정의: 형태(shape)가 (d1, d2, ...)인 텐서를 생성한다. 텐서의 각 값은 균등분포 [0, 1) 범위의 무작위 값으로 초기화된다.
+2. `nn.Parameter(Tensor data)`
+- 정의: 텐서를 받아서 같은 값을 가지는 **학습 가능한 텐서**를 반환한다.
+#### 자세한 설명
+`torch.rand(hidden_dim)`을 이용하여 각 hidden state vector와 같은 길이(= `hidden_dim`)를 가지는 무작위 값 벡터(차원이 하나밖에 없는 텐서이므로 벡터라고 해도 됨)를 생성한다. 이후 `nn.Parameter`를 이용하여 기존 벡터와 같은 무작위 값을 가지는 학습 가능한 벡터를 생성한다. Energy 계산 후 이 벡터를 잘 굴려서 context vector를 뽑아낼 수 있다.
 
 ### forward
 #### 기본 설명
@@ -68,9 +75,9 @@ hidden = hidden.expand(batch_size, seq_len, -1)
 #### 기본 설명
 이후의 연산 작업을 위해 텐서 `hidden`을 전처리 하는 과정이다.
 #### 코드 추가 설명
-1. `.permute(i1, i2, ...)`
+1. `.permute(int i1, i2, ...)`
 - 정의: 인자 순서에 맞춰서 텐서의 각 차원의 위치를 교환해준다. 행렬 transpose의 다차원 버전이라고 생각하면 편하다.
-2. `.expand(d1, d2, ...)`
+2. `.expand(int d1, d2, ...)`
 - 정의: 텐서의 k번째 차원이 d_k 크기를 가지도록 확장(브로드캐스팅) 해준다 (단, d_k가 -1이면 그대로 유지). 결과적으로 텐서의 형태가 (d1, d2, ...) 이 된다.
 #### 자세한 설명
 1. `hidden = hidden.permute(1, 0, 2)`
@@ -80,12 +87,12 @@ hidden = hidden.expand(batch_size, seq_len, -1)
 - 역할: 텐서 `hidden`이 `(batch_size, seq_len, hidden_dim)` 형태가 되도록 브로드캐스팅 해준다. (나머지 차원은 그대로 두고 1번째 차원의 크기만 `num_layers`에서 `seq_len`가 되도록 함)
 - 이유: 두 텐서 `hidden`과 `encoder_outputs`의 연산을 정상적으로 실행하려면, 형태가 호환 가능하도록 맞춰주는 작업이 필요하다.
 
-### Energy 계산
+### Energy(Attention Score) 계산
 ```py
 energy = torch.tanh(self.attn(torch.cat((hidden, encoder_outputs), dim=2)))
 ```
 #### 기본 설명
-energy는 Attention 메커니즘에서 Decoder의 현재 hidden state와 Encoder의 각 시점의 hidden state 사이의 관련성(유사도, 중요도)을 수치로 나타낸 값이다(각 Encoder 출력마다 하나씩 계산된다). 이 값이 클수록, 해당 인코더 위치(단어)가 디코더의 현재 예측에 더 중요한 정보를 제공한다고 해석할 수 있기에, 후처리를 진행하고 나중에 가중치로 써먹는다. 
+Energy(Attention Score)는 Attention 메커니즘에서 Decoder의 현재 hidden state와 Encoder의 각 시점의 hidden state 사이의 관련성(유사도, 중요도)을 수치로 나타낸 값이다(각 Encoder 출력마다 하나씩 계산된다). 이 값이 클수록, 해당 인코더 위치(단어)가 디코더의 현재 예측에 더 중요한 정보를 제공한다고 해석할 수 있기에, 후처리를 진행하고 나중에 가중치로 써먹는다. 
 #### 계산 방법
 1. dot product
 - energy = hidden * encoder_outputs.transpose()
@@ -108,7 +115,3 @@ Additive attention 방식으로 energy를 계산해보자. `torch.cat`으로 먼
 ### Attention Weight (Context Vector) 계산
 v = self.v.repeat(batch_size, 1).unsqueeze(2)
 
-`source`: encoder에 입력되는 원본 sequence (예: 번역할 원문)
-`target`: decoder가 학습?할 target sequence (예: 번역 결과)
-`.size(d)`는 d번째(d >= 0) 차원의 시퀀스 길이를 반환하는 함수이다.\
-`
