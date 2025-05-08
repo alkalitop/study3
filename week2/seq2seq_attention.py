@@ -81,7 +81,7 @@ class Attention(nn.Module):
         v = self.v.repeat(batch_size, 1).unsqueeze(2) 
         attention_weights = torch.bmm(energy, v).squeeze(2) 
         
-        return torch.softmax(attention_weights, dim=1) # soft max에 넣어서 확률로 변환 => 가중치
+        return torch.softmax(attention_weights, dim=1)
 
 class Encoder(nn.Module):
     # 얜 별로 다를거 없음
@@ -108,10 +108,10 @@ class Decoder(nn.Module):
         embedded = self.embedding(x) 
         
         attn_weights = self.attention(hidden, encoder_outputs)  
-        attn_weights = attn_weights.unsqueeze(1)  # Attention 가중치 구하기
-        context = torch.bmm(attn_weights, encoder_outputs) # 가중치와 h_e_i 곱의 합 => context vector
+        attn_weights = attn_weights.unsqueeze(1) 
+        context = torch.bmm(attn_weights, encoder_outputs)
         
-        lstm_input = torch.cat((embedded, context), dim=2)  # h_d_i 랑 context vector를 concatenate
+        lstm_input = torch.cat((embedded, context), dim=2) 
         output, (hidden, cell) = self.lstm(lstm_input, (hidden, cell)) 
         prediction = self.fc(output.squeeze(1)) 
         
